@@ -186,49 +186,114 @@ def delete_order(oid):
 
 # ─── EXCEL IMPORT ─────────────────────────────────────────────────────────────
 
+def _scalar(val):
+    """Safely extract a scalar from a value that might be a pandas Series."""
+    import pandas as pd
+    if isinstance(val, pd.Series):
+        return val.iloc[0]
+    return val
+
+def _read_excel_flexible(file_bytes):
+    """Try reading the Excel file from known sheet names, fall back to first sheet."""
+    import pandas as pd
+    preferred = ['Resultados', 'Planilha1', 'Sheet1', 'Produtos']
+    xls = pd.ExcelFile(io.BytesIO(file_bytes))
+    for name in preferred:
+        if name in xls.sheet_names:
+            return pd.read_excel(io.BytesIO(file_bytes), sheet_name=name)
+    return pd.read_excel(io.BytesIO(file_bytes), sheet_name=0)
+
+def _normalise_product_columns(df):
+    """
+    Rename columns to canonical names.
+    Handles duplicates by keeping only the FIRST column that maps to each target.
+    Also detects mm² values and converts them to m².
+    """
+    import pandas as pd
+    df.columns = [str(c).strip() for c in df.columns]
+
+    # Priority-ordered patterns: first match wins for each target
+    patterns = [
+        ('Código',           lambda lc: 'código' in lc or 'codigo' in lc or lc == 'cod' or lc.startswith('cod.')),
+        ('Item',             lambda lc: lc == 'item' or 'descri' in lc or ('produto' in lc and 'empilh' not in lc)),
+        ('Area (m²)',        lambda lc: 'area' in lc or 'área' in lc),
+        ('Peso (kg)',        lambda lc: 'peso' in lc),
+        ('Empilhável (s/n)', lambda lc: 'empilh' in lc),
+    ]
+
+    assigned = {}   # target -> original col name (first match only)
+    for col in df.columns:
+        lc = col.lower()
+        for target, match_fn in patterns:
+            if target not in assigned and match_fn(lc):
+                assigned[target] = col
+                break
+
+    # Build rename map from original name -> target
+    rename_map = {orig: target for target, orig in assigned.items()}
+    df = df.rename(columns=rename_map)
+
+    # Drop any duplicate columns that appeared after renaming
+    df = df.loc[:, ~df.columns.duplicated(keep='first')]
+
+    # Detect mm² area values and convert to m² (values > 1000 are almost certainly mm²)
+    if 'Area (m²)' in df.columns:
+        sample = df['Area (m²)'].dropna()
+        if len(sample) > 0 and pd.to_numeric(sample, errors='coerce').median() > 100:
+            df['Area (m²)'] = pd.to_numeric(df['Area (m²)'], errors='coerce') / 1_000_000
+
+    return df
+
 @app.route('/api/import/products', methods=['POST'])
 def import_products_excel():
     if 'file' not in request.files:
         return jsonify({'error': 'No file provided'}), 400
     f = request.files['file']
     try:
-        df = pd.read_excel(io.BytesIO(f.read()), sheet_name=0)
-        df.columns = [str(c).strip() for c in df.columns]
-
-        # Normalise column names to handle variations
-        rename_map = {}
-        for col in df.columns:
-            lc = col.lower()
-            if 'código' in lc or 'codigo' in lc:
-                rename_map[col] = 'Código'
-            elif 'item' in lc or 'produto' in lc:
-                rename_map[col] = 'Item'
-            elif 'area' in lc or 'área' in lc:
-                rename_map[col] = 'Area (m²)'
-            elif 'peso' in lc:
-                rename_map[col] = 'Peso (kg)'
-            elif 'empilh' in lc:
-                rename_map[col] = 'Empilhável (s/n)'
-        df.rename(columns=rename_map, inplace=True)
+        file_bytes = f.read()
+        df = _read_excel_flexible(file_bytes)
+        df = _normalise_product_columns(df)
 
         required = ['Código', 'Item', 'Area (m²)', 'Peso (kg)', 'Empilhável (s/n)']
         missing = [c for c in required if c not in df.columns]
         if missing:
-            return jsonify({'error': f'Missing columns: {missing}. Found: {list(df.columns)}'}), 400
+            return jsonify({
+                'error': f'Colunas não encontradas: {missing}. '
+                         f'Colunas detectadas na planilha: {list(df.columns)}'
+            }), 400
 
         conn = get_db()
         cur = conn.cursor()
         inserted = 0
-        updated = 0
         errors = []
-        for _, row in df.iterrows():
+        for idx, row in df.iterrows():
             try:
-                codigo = int(row['Código'])
-                item = str(row['Item']).strip()
-                nome = item.split('-', 1)[1].strip() if '-' in item else item
-                area = float(row['Area (m²)'])
-                peso = float(row['Peso (kg)'])
-                emp = str(row['Empilhável (s/n)']).strip().lower() in ('sim', 'yes', 's', 'true', '1')
+                raw_cod  = _scalar(row['Código'])
+                raw_item = _scalar(row['Item'])
+                raw_area = _scalar(row['Area (m²)'])
+                raw_peso = _scalar(row['Peso (kg)'])
+                raw_emp  = _scalar(row['Empilhável (s/n)'])
+
+                # Skip completely empty rows
+                if pd.isna(raw_cod) or pd.isna(raw_item):
+                    continue
+
+                codigo = int(float(str(raw_cod).strip()))
+                item   = str(raw_item).strip()
+                nome   = item.split('-', 1)[1].strip() if '-' in item else item
+
+                area_val = pd.to_numeric(str(raw_area).replace(',', '.'), errors='coerce')
+                if pd.isna(area_val):
+                    area_val = 0.0
+                area = float(area_val)
+
+                peso_val = pd.to_numeric(str(raw_peso).replace(',', '.'), errors='coerce')
+                if pd.isna(peso_val):
+                    peso_val = 0.0
+                peso = float(peso_val)
+
+                emp = str(raw_emp).strip().lower() in ('sim', 'yes', 's', 'true', '1')
+
                 cur.execute(
                     """INSERT INTO products (codigo, item, nome, area_m2, peso_kg, empilhavel)
                        VALUES (%s, %s, %s, %s, %s, %s)
@@ -239,7 +304,7 @@ def import_products_excel():
                 )
                 inserted += 1
             except Exception as e:
-                errors.append(str(e))
+                errors.append(f'Linha {idx + 2}: {e}')
         conn.commit()
         conn.close()
         return jsonify({'ok': True, 'upserted': inserted, 'errors': errors})
