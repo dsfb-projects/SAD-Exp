@@ -84,7 +84,7 @@ export default function ImportPage({ onRefresh }: Props) {
           <Package size={15} /> Produtos
         </button>
         <button style={tabStyle('orders')} onClick={() => { setActiveTab('orders'); setResult(null) }}>
-          <ShoppingCart size={15} /> Materiais de Pedidos
+          <ShoppingCart size={15} /> Materiais de projetos
         </button>
       </div>
 
