@@ -548,6 +548,91 @@ _SEED_PRODUCTS = [
     (1094,"UNIDUT CONICO 1.1/2\" UCT 112C",True),(1095,"VERGALHAO COBRE 3/8\"X3,0M",False),
 ]
 
+@app.route('/api/seed/fix-catalog', methods=['POST'])
+def fix_catalog():
+    """
+    1. Set miscelanea=True for all hardware items (by keyword on nome).
+    2. Insert missing key products estimated from TABELA MEDIDAS + PESO EQUIPAMENTOS.
+    """
+    MISC_KEYWORDS = [
+        'ARRUELA', 'PARAF', 'PORCA', 'CHUMBADOR', 'CORDA EM NYLON',
+        'MOLA DE EXPULSAO', 'ELO FUSIVEL', 'BUCHA P/ UNIDUT', 'UNIDUT CONICO', 'TAMPAO MT',
+    ]
+    # (nome, area_m2, peso_kg, empilhavel)
+    # Sources: PESO EQUIPAMENTOS + TABELA MEDIDAS EMBALAGENS + Leo's catalog
+    MISSING = [
+        # Capacitores
+        ('FI 400KVAR 8360V',                0.213, 50.0,  False),  # emb 3490004H01 aprox; PESO=50kg@400kvar
+        ('MH 147,167KVAR 12930V',           0.213, 25.0,  False),  # similar dimensao; peso estimado
+        # Reatores - RT42011060: 3 reatores em caixa 1348x450mm -> por unidade: 0.202m2
+        ('REATOR 0,07MH 270A 15KV 60HZ',   0.202, 75.0,  False),
+        ('REATOR TIPO RFF- 125,557MH / 2',  0.303, 100.0, False),  # reator maior, embalagem RT mais larga
+        # Chaves a vacuo - CHV001016 (SEC15KV): 1960x1000mm; CHV001011 (CJ15KV): 2720x1200mm
+        ('CAT 15KV 630A - NEOENERGIA',      1.960, 108.0, False),  # CHV001016; PESO=108kg@15kV
+        ('CAT 36KV 630A',                   3.752, 125.0, False),  # CHV001015 2680x1400mm; PESO=125kg@38kV
+        ('CHAVE A VACUO 38KV NBI 170KV',    3.752, 300.0, False),  # CHV001015; PESO=300kg@38kV 200NBI
+        ('SAV 36 KV 630 A',                 3.752, 125.0, False),  # CHV001015
+        # Estruturas - alias do Leo "CJ ESTRUTURA BANCO SHUNT TRANSENE" para o nome TOTVS
+        ('ESTRUTURA BANCO SHUNT TRANSENER', 2.400, 401.0, True),   # mesmo que Leo CJ; empilhavel
+        ('ESTRUTURA METALICA NEOENERGIA',   2.400, 200.0, True),   # estimado; estrutura metalica similar
+        ('ESTRUTURA METALICA SIMEC ESTAG',  2.400, 200.0, True),
+        # Para-raios
+        ('PARA-RAIOS 12KVCL2 19134300',     0.040, 15.0,  False),
+        ('PARA-RAIOS-36KV10KA-CL2CN',       0.040, 20.0,  False),
+        # Isoladores (variantes nao no Leo - base: TR-208 = 0.040m2, 13.25kg)
+        ('ISOLADOR SUPORTE MACICO TR-205',  0.040, 11.0,  False),
+        ('ISOLADOR SUPORTE MACICO TR-210',  0.040, 15.0,  False),
+        ('ISOLADOR SUPORTE MACICO TR-225',  0.040, 21.0,  False),
+        ('ISOLADOR SUPORTE MACICO TR-231',  0.040, 25.0,  False),
+        # Barramentos (estimados)
+        ('BARRAMENTO CHAVE A VACUO',        0.400, 15.0,  False),
+        ('BARRAMENTO DE ENTRADA SECCIONA',  0.400, 15.0,  False),
+        ('BARRAMENTO ENTRADA',              0.300, 10.0,  False),
+        ('BARRAMENTO P/ 02 PORTA-FUS CXP',  0.300, 10.0,  False),
+    ]
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    # Step 1: fix miscelanea flag
+    misc_fixed = 0
+    for kw in MISC_KEYWORDS:
+        cur.execute(
+            "UPDATE products SET miscelanea=TRUE WHERE UPPER(nome) LIKE %s AND miscelanea=FALSE",
+            (f'%{kw}%',)
+        )
+        misc_fixed += cur.rowcount
+
+    # Step 2: next codigo
+    cur.execute("SELECT COALESCE(MAX(codigo), 0) FROM products")
+    next_cod = cur.fetchone()[0] + 1
+
+    # Step 3: insert missing products (skip if name already exists)
+    added, skipped = [], []
+    for nome, area, peso, emp in MISSING:
+        cur.execute("SELECT 1 FROM products WHERE UPPER(TRIM(nome))=UPPER(TRIM(%s))", (nome,))
+        if cur.fetchone():
+            skipped.append(nome)
+            continue
+        cur.execute(
+            """INSERT INTO products (codigo, item, nome, area_m2, peso_kg, empilhavel, miscelanea)
+               VALUES (%s, %s, %s, %s, %s, %s, FALSE)""",
+            (next_cod, nome, nome, area, peso, emp)
+        )
+        added.append(nome)
+        next_cod += 1
+
+    conn.commit()
+    conn.close()
+    return jsonify({
+        'ok': True,
+        'miscelanea_fixed': misc_fixed,
+        'products_added': len(added),
+        'added': added,
+        'already_existed': skipped,
+    })
+
+
 @app.route('/api/seed/products', methods=['POST'])
 def seed_products():
     """One-time endpoint to populate catalog from historical TOTVS data."""
