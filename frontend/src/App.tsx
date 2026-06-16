@@ -32,7 +32,7 @@ export default function App() {
     <div className="app-layout">
       <aside className="sidebar">
         <div className="sidebar-brand">
-          <img src="/logo.png" alt="SAD-Exp" style={{ width: '100%', maxWidth: 140, objectFit: 'contain' }} />
+          <img src="/logo.svg" alt="SAD-Exp" style={{ width: '100%', maxWidth: 160, objectFit: 'contain' }} />
         </div>
         <nav className="sidebar-nav">
           {NAV.map(({ id, label, Icon }) => (
