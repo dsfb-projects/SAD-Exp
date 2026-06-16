@@ -557,6 +557,8 @@ def fix_catalog():
     MISC_KEYWORDS = [
         'ARRUELA', 'PARAF', 'PORCA', 'CHUMBADOR', 'CORDA EM NYLON',
         'MOLA DE EXPULSAO', 'ELO FUSIVEL', 'BUCHA P/ UNIDUT', 'UNIDUT CONICO', 'TAMPAO MT',
+        # Conectores que vão presos ao capacitor — não ocupam piso independente
+        'CONECT INF BRONZE', 'CONECT SUP BRONZE',
     ]
     # (nome, area_m2, peso_kg, empilhavel)
     # Sources: PESO EQUIPAMENTOS + TABELA MEDIDAS EMBALAGENS + Leo's catalog
@@ -594,6 +596,13 @@ def fix_catalog():
     conn = get_db()
     cur = conn.cursor()
 
+    # Step 0: correct MG 634KVAR area — Leo's catalog stored per-box (4 caps); TOTVS counts individual units
+    # Romaneio confirms: 1 caixa de madeira 1222×520mm holds 4 caps → per-unit = 0.635440/4 = 0.158860 m²
+    cur.execute(
+        "UPDATE products SET area_m2 = 0.158860 WHERE UPPER(TRIM(nome)) LIKE 'MG 634KVAR%' AND area_m2 > 0.5"
+    )
+    mg_area_fixed = cur.rowcount
+
     # Step 1: fix miscelanea flag
     misc_fixed = 0
     for kw in MISC_KEYWORDS:
@@ -626,6 +635,7 @@ def fix_catalog():
     conn.close()
     return jsonify({
         'ok': True,
+        'mg_area_fixed': mg_area_fixed,
         'miscelanea_fixed': misc_fixed,
         'products_added': len(added),
         'added': added,
@@ -667,12 +677,13 @@ def obter_dados_produto_db(cur, codigo):
     cur.execute("SELECT * FROM products WHERE codigo = %s", (codigo,))
     produto = cur.fetchone()
     if produto is None:
-        return None, None, None, None
+        return None, None, None, None, None
     area = float(produto['area_m2'])
     peso = float(produto['peso_kg'])
     empilhavel = bool(produto['empilhavel'])
+    miscelanea = bool(produto['miscelanea'])
     nome = produto['nome']
-    return area, peso, empilhavel, nome
+    return area, peso, empilhavel, miscelanea, nome
 
 @app.route('/api/calculate', methods=['POST'])
 def calculate():
@@ -691,7 +702,7 @@ def calculate():
         conn.close()
         return jsonify({'error': 'Nenhum tipo de veículo cadastrado. Cadastre veículos primeiro.'}), 400
 
-    area_padrao = float(frotas[0]['area_base_m2'])
+    area_padrao = max(float(v['area_base_m2']) for v in frotas)
     contador_extras = 1
 
     status_frota = []
@@ -762,10 +773,13 @@ def calculate():
                 warnings.append(f"Invalid code '{cod_str}' in order {num_venda}")
                 continue
 
-            area_unit, peso_unit, empilhavel, nome_prod = obter_dados_produto_db(cur, codigo)
+            area_unit, peso_unit, empilhavel, miscelanea, nome_prod = obter_dados_produto_db(cur, codigo)
             if area_unit is None:
                 warnings.append(f"Product code {codigo} not found (order {num_venda})")
                 continue
+
+            if miscelanea:
+                continue  # miscelânea items go in caixa de miscelânea (qtd_bancos), not tracked per vehicle
 
             if not empilhavel and area_unit > area_padrao:
                 warnings.append(f"'{nome_prod}' exceeds truck floor area — cannot load")
