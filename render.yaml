@@ -2,6 +2,7 @@ services:
   - type: web
     name: sad-exp
     runtime: python
+    plan: free
     buildCommand: >
       pip install -r backend/requirements.txt &&
       cd frontend && npm install && npm run build
