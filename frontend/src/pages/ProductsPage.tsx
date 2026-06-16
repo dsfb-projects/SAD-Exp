@@ -4,7 +4,7 @@ import { Plus, Pencil, Trash2, Package, Search } from 'lucide-react'
 
 interface Props { onRefresh: () => void }
 
-const EMPTY: ProductInput = { codigo: 0, item: '', nome: '', area_m2: 0, peso_kg: 0, empilhavel: false }
+const EMPTY: ProductInput = { codigo: 0, item: '', nome: '', area_m2: 0, peso_kg: 0, empilhavel: false, miscelanea: false }
 
 export default function ProductsPage({ onRefresh }: Props) {
   const [products, setProducts] = useState<Product[]>([])
@@ -23,7 +23,7 @@ export default function ProductsPage({ onRefresh }: Props) {
   useEffect(load, [])
 
   const openCreate = () => { setForm(EMPTY); setError(''); setModal('create') }
-  const openEdit = (p: Product) => { setForm({ codigo: p.codigo, item: p.item, nome: p.nome, area_m2: p.area_m2, peso_kg: p.peso_kg, empilhavel: p.empilhavel }); setError(''); setModal(p) }
+  const openEdit = (p: Product) => { setForm({ codigo: p.codigo, item: p.item, nome: p.nome, area_m2: p.area_m2, peso_kg: p.peso_kg, empilhavel: p.empilhavel, miscelanea: p.miscelanea }); setError(''); setModal(p) }
   const closeModal = () => setModal(null)
 
   const save = async () => {
@@ -90,7 +90,7 @@ export default function ProductsPage({ onRefresh }: Props) {
                     <th>Item</th>
                     <th>Área (m²)</th>
                     <th>Peso (kg)</th>
-                    <th>Empilhável</th>
+                    <th>Tipo</th>
                     <th style={{ width: 80 }}></th>
                   </tr>
                 </thead>
@@ -105,9 +105,10 @@ export default function ProductsPage({ onRefresh }: Props) {
                       <td>{p.area_m2.toFixed(3)}</td>
                       <td>{p.peso_kg.toFixed(1)}</td>
                       <td>
-                        <span className={`badge ${p.empilhavel ? 'badge-green' : 'badge-red'}`}>
-                          {p.empilhavel ? 'Sim' : 'Não'}
-                        </span>
+                        {p.miscelanea
+                          ? <span className="badge" style={{ background: 'rgba(245,158,11,0.15)', color: '#d97706' }}>Miscelânea</span>
+                          : <span className="badge badge-green">{p.empilhavel ? 'Empilhável' : 'Equipamento'}</span>
+                        }
                       </td>
                       <td>
                         <div style={{ display: 'flex', gap: 6 }}>
@@ -152,12 +153,20 @@ export default function ProductsPage({ onRefresh }: Props) {
                 <label>Peso (kg)</label>
                 <input type="number" step="0.1" value={form.peso_kg} onChange={e => setForm(f => ({ ...f, peso_kg: +e.target.value }))} />
               </div>
-              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+              <div className="form-group">
                 <label>Empilhável</label>
                 <label className="toggle">
                   <input type="checkbox" checked={form.empilhavel} onChange={e => setForm(f => ({ ...f, empilhavel: e.target.checked }))} />
                   <div className="toggle-track"><div className="toggle-thumb" /></div>
                   <span>{form.empilhavel ? 'Sim — não ocupa área de piso' : 'Não — ocupa área de piso'}</span>
+                </label>
+              </div>
+              <div className="form-group">
+                <label>Miscelânea</label>
+                <label className="toggle">
+                  <input type="checkbox" checked={form.miscelanea} onChange={e => setForm(f => ({ ...f, miscelanea: e.target.checked }))} />
+                  <div className="toggle-track"><div className="toggle-thumb" /></div>
+                  <span>{form.miscelanea ? 'Sim — vai para caixa de miscelânea' : 'Não — item físico individual'}</span>
                 </label>
               </div>
             </div>

@@ -14,7 +14,7 @@ type Page = 'dashboard' | 'products' | 'trucks' | 'orders' | 'import' | 'calcula
 const NAV: { id: Page; label: string; Icon: React.FC<{size?: string | number}> }[] = [
   { id: 'dashboard', label: 'Dashboard', Icon: LayoutDashboard },
   { id: 'products', label: 'Produtos', Icon: Package },
-  { id: 'trucks', label: 'Carretas', Icon: Truck },
+  { id: 'trucks', label: 'Veículos', Icon: Truck },
   { id: 'orders', label: 'Projetos', Icon: ShoppingCart },
   { id: 'import', label: 'Importar', Icon: Upload },
   { id: 'calculator', label: 'Calculadora', Icon: Calculator },
@@ -49,7 +49,7 @@ export default function App() {
         {stats && (
           <div className="sidebar-stats">
             <div className="stat-mini"><span>{stats.products}</span><label>Produtos</label></div>
-            <div className="stat-mini"><span>{stats.trucks}</span><label>Carretas</label></div>
+            <div className="stat-mini"><span>{stats.trucks}</span><label>Veículos</label></div>
             <div className="stat-mini"><span>{stats.orders}</span><label>Projetos</label></div>
           </div>
         )}

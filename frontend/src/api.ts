@@ -59,14 +59,15 @@ export interface Stats {
 }
 export interface Product {
   id: number; codigo: number; item: string; nome: string
-  area_m2: number; peso_kg: number; empilhavel: boolean; created_at: string
+  area_m2: number; peso_kg: number; empilhavel: boolean
+  miscelanea: boolean; created_at: string
 }
 export type ProductInput = Omit<Product, 'id'|'created_at'>
 
 export interface Truck {
-  id: number; id_carreta: string; area_base_m2: number; created_at: string
+  id: number; nome: string; area_base_m2: number
 }
-export type TruckInput = Omit<Truck, 'id'|'created_at'>
+export type TruckInput = Omit<Truck, 'id'>
 
 export interface Order {
   id: number; num_venda: string; cliente: string

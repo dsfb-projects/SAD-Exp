@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { api, TotvsPreview } from '../api'
-import { Upload, FileSpreadsheet, CheckCircle, AlertTriangle, Package, ShoppingCart, FileText, ChevronDown, ChevronUp } from 'lucide-react'
+import { Upload, FileSpreadsheet, CheckCircle, AlertTriangle, Package, ShoppingCart, FileText, ChevronDown, ChevronUp, Plus, X } from 'lucide-react'
 
 interface Props { onRefresh: () => void }
 
@@ -35,6 +35,12 @@ export default function ImportPage({ onRefresh }: Props) {
   const [confirmSuccess, setConfirmSuccess] = useState(false)
   const [showSuppressed, setShowSuppressed] = useState(false)
   const totvsRef = useRef<HTMLInputElement>(null)
+
+  // Quick-add product state
+  const [quickAdd, setQuickAdd] = useState<{ descricao: string; qtd: number } | null>(null)
+  const [qaForm, setQaForm] = useState({ codigo: 0, area_m2: 0, peso_kg: 0, empilhavel: false, miscelanea: false })
+  const [qaSaving, setQaSaving] = useState(false)
+  const [qaError, setQaError] = useState('')
 
   // ── Excel handlers ──────────────────────────────────────────────────────────
   const handleExcelFile = async (file: File) => {
@@ -81,6 +87,41 @@ export default function ImportPage({ onRefresh }: Props) {
     } catch (e: unknown) {
       setTotvsError(e instanceof Error ? e.message : 'Erro ao processar CSV')
     } finally { setTotvsLoading(false) }
+  }
+
+  const openQuickAdd = (item: { descricao: string; qtd: number }) => {
+    setQuickAdd(item)
+    setQaForm({ codigo: Math.floor(Date.now() % 100000), area_m2: 0, peso_kg: 0, empilhavel: false, miscelanea: false })
+    setQaError('')
+  }
+
+  const saveQuickAdd = async () => {
+    if (!quickAdd) return
+    setQaSaving(true); setQaError('')
+    try {
+      await api.createProduct({
+        codigo: qaForm.codigo,
+        item: quickAdd.descricao,
+        nome: quickAdd.descricao,
+        area_m2: qaForm.area_m2,
+        peso_kg: qaForm.peso_kg,
+        empilhavel: qaForm.empilhavel,
+        miscelanea: qaForm.miscelanea,
+      })
+      setQuickAdd(null)
+      onRefresh()
+      // Re-run preview with the same file
+      if (totvsFile) {
+        setTotvsLoading(true); setTotvsError(''); setConfirmSuccess(false)
+        try {
+          const res: TotvsPreview = await api.importTotvs(totvsFile, numProjeto, cliente)
+          if (res.ok) setTotvsPreview(res)
+        } catch { /* keep existing preview */ }
+        finally { setTotvsLoading(false) }
+      }
+    } catch (e: unknown) {
+      setQaError(e instanceof Error ? e.message : 'Erro ao cadastrar produto')
+    } finally { setQaSaving(false) }
   }
 
   const confirmTotvs = async () => {
@@ -227,13 +268,16 @@ export default function ImportPage({ onRefresh }: Props) {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                       <AlertTriangle size={16} color="#f59e0b" />
                       <span style={{ fontWeight: 700 }}>Não encontrados no catálogo ({totvsPreview.unmatched.length})</span>
-                      <span style={{ fontSize: 12, color: 'var(--muted)' }}>— cadastre esses produtos antes de confirmar</span>
+                      <span style={{ fontSize: 12, color: 'var(--muted)' }}>— clique em Cadastrar para adicionar</span>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                       {totvsPreview.unmatched.map((u, i) => (
-                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', background: 'var(--surface2)', borderRadius: 6, padding: '7px 12px', fontSize: 13 }}>
-                          <span>{u.descricao}</span>
-                          <span style={{ fontWeight: 600, color: 'var(--muted)' }}>×{u.qtd}</span>
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--surface2)', borderRadius: 6, padding: '7px 12px', fontSize: 13, gap: 8 }}>
+                          <span style={{ flex: 1 }}>{u.descricao}</span>
+                          <span style={{ fontWeight: 600, color: 'var(--muted)', marginRight: 8 }}>×{u.qtd}</span>
+                          <button className="btn btn-primary btn-sm" onClick={() => openQuickAdd(u)} style={{ fontSize: 11, padding: '4px 10px' }}>
+                            <Plus size={11} /> Cadastrar
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -301,6 +345,58 @@ export default function ImportPage({ onRefresh }: Props) {
                   <code style={{ color: 'var(--accent)' }}>{c}</code>
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── QUICK-ADD PRODUCT MODAL ──────────────────────────────────────── */}
+      {quickAdd && (
+        <div className="modal-overlay" onClick={() => setQuickAdd(null)}>
+          <div className="modal" style={{ width: 500 }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <div className="modal-title" style={{ margin: 0 }}>Cadastrar Produto</div>
+              <button onClick={() => setQuickAdd(null)} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer' }}><X size={18} /></button>
+            </div>
+            <div className="form-group" style={{ marginBottom: 14 }}>
+              <label>Nome (do TOTVS)</label>
+              <input value={quickAdd.descricao} readOnly style={{ opacity: 0.7 }} />
+            </div>
+            <div className="form-grid form-grid-2">
+              <div className="form-group">
+                <label>Código</label>
+                <input type="number" value={qaForm.codigo} onChange={e => setQaForm(f => ({ ...f, codigo: +e.target.value }))} />
+              </div>
+              <div className="form-group">
+                <label>Área de piso (m²)</label>
+                <input type="number" step="0.001" value={qaForm.area_m2} onChange={e => setQaForm(f => ({ ...f, area_m2: +e.target.value }))} placeholder="ex: 0.533" />
+              </div>
+              <div className="form-group">
+                <label>Peso (kg)</label>
+                <input type="number" step="0.1" value={qaForm.peso_kg} onChange={e => setQaForm(f => ({ ...f, peso_kg: +e.target.value }))} />
+              </div>
+              <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: 8, justifyContent: 'flex-end' }}>
+                <label className="toggle" style={{ marginBottom: 4 }}>
+                  <input type="checkbox" checked={qaForm.miscelanea} onChange={e => setQaForm(f => ({ ...f, miscelanea: e.target.checked }))} />
+                  <div className="toggle-track"><div className="toggle-thumb" /></div>
+                  <span style={{ fontSize: 12 }}>É miscelânea (vai para caixa, não ocupa área)</span>
+                </label>
+                <label className="toggle">
+                  <input type="checkbox" checked={qaForm.empilhavel} onChange={e => setQaForm(f => ({ ...f, empilhavel: e.target.checked }))} />
+                  <div className="toggle-track"><div className="toggle-thumb" /></div>
+                  <span style={{ fontSize: 12 }}>Empilhável</span>
+                </label>
+              </div>
+            </div>
+            {qaError && <div className="alert alert-error" style={{ marginTop: 10 }}>{qaError}</div>}
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 14 }}>
+              Após salvar, o preview será atualizado automaticamente.
+            </div>
+            <div className="modal-actions">
+              <button className="btn btn-secondary" onClick={() => setQuickAdd(null)}>Cancelar</button>
+              <button className="btn btn-primary" onClick={saveQuickAdd} disabled={qaSaving}>
+                {qaSaving ? 'Salvando...' : 'Salvar e atualizar preview'}
+              </button>
             </div>
           </div>
         </div>

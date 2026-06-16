@@ -31,10 +31,12 @@ def init_db():
             nome       TEXT,
             area_m2    FLOAT,
             peso_kg    FLOAT,
-            empilhavel BOOLEAN DEFAULT FALSE
+            empilhavel BOOLEAN DEFAULT FALSE,
+            miscelanea BOOLEAN DEFAULT FALSE
         );
         CREATE TABLE IF NOT EXISTS trucks (
             id_carreta   SERIAL PRIMARY KEY,
+            nome         TEXT,
             area_base_m2 FLOAT
         );
         CREATE TABLE IF NOT EXISTS sales_orders (
@@ -44,6 +46,29 @@ def init_db():
             produtos  JSONB
         );
     """)
+    # Migrations for existing deployments
+    cur.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS miscelanea BOOLEAN DEFAULT FALSE")
+    cur.execute("ALTER TABLE trucks ADD COLUMN IF NOT EXISTS nome TEXT")
+    conn.commit()
+    conn.close()
+    _seed_trucks()
+
+def _seed_trucks():
+    """Pre-populate vehicle types if table is empty."""
+    veiculos = [
+        ('Furgão / VUC', 7.0),
+        ('Toco', 14.4),
+        ('Truck', 18.0),
+        ('Carreta Simples', 34.8),
+        ('Carreta Baú', 33.6),
+    ]
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) FROM trucks")
+    count = cur.fetchone()[0]
+    if count == 0:
+        for nome, area in veiculos:
+            cur.execute("INSERT INTO trucks (nome, area_base_m2) VALUES (%s, %s)", (nome, area))
     conn.commit()
     conn.close()
 
@@ -66,10 +91,10 @@ def create_product():
     conn = get_db()
     cur = dict_cursor(conn)
     cur.execute(
-        """INSERT INTO products (codigo, item, nome, area_m2, peso_kg, empilhavel)
-           VALUES (%s, %s, %s, %s, %s, %s) RETURNING *""",
+        """INSERT INTO products (codigo, item, nome, area_m2, peso_kg, empilhavel, miscelanea)
+           VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING *""",
         (data['codigo'], data['item'], data['nome'],
-         data['area_m2'], data['peso_kg'], data['empilhavel'])
+         data['area_m2'], data['peso_kg'], data['empilhavel'], data.get('miscelanea', False))
     )
     row = cur.fetchone()
     conn.commit()
@@ -83,9 +108,9 @@ def update_product(pid):
     cur = dict_cursor(conn)
     cur.execute(
         """UPDATE products SET codigo=%s, item=%s, nome=%s, area_m2=%s,
-           peso_kg=%s, empilhavel=%s WHERE codigo=%s RETURNING *""",
+           peso_kg=%s, empilhavel=%s, miscelanea=%s WHERE codigo=%s RETURNING *""",
         (data['codigo'], data['item'], data['nome'],
-         data['area_m2'], data['peso_kg'], data['empilhavel'], pid)
+         data['area_m2'], data['peso_kg'], data['empilhavel'], data.get('miscelanea', False), pid)
     )
     row = cur.fetchone()
     conn.commit()
@@ -109,7 +134,7 @@ def delete_product(pid):
 def list_trucks():
     conn = get_db()
     cur = dict_cursor(conn)
-    cur.execute("SELECT * FROM trucks ORDER BY id_carreta")
+    cur.execute("SELECT id_carreta AS id, nome, area_base_m2 FROM trucks ORDER BY id_carreta")
     rows = cur.fetchall()
     conn.close()
     return jsonify([dict(r) for r in rows])
@@ -120,8 +145,8 @@ def create_truck():
     conn = get_db()
     cur = dict_cursor(conn)
     cur.execute(
-        "INSERT INTO trucks (id_carreta, area_base_m2) VALUES (%s, %s) RETURNING *",
-        (data['id_carreta'], data['area_base_m2'])
+        "INSERT INTO trucks (nome, area_base_m2) VALUES (%s, %s) RETURNING id_carreta AS id, nome, area_base_m2",
+        (data['nome'], data['area_base_m2'])
     )
     row = cur.fetchone()
     conn.commit()
@@ -134,8 +159,8 @@ def update_truck(tid):
     conn = get_db()
     cur = dict_cursor(conn)
     cur.execute(
-        "UPDATE trucks SET id_carreta=%s, area_base_m2=%s WHERE id_carreta=%s RETURNING *",
-        (data['id_carreta'], data['area_base_m2'], tid)
+        "UPDATE trucks SET nome=%s, area_base_m2=%s WHERE id_carreta=%s RETURNING id_carreta AS id, nome, area_base_m2",
+        (data['nome'], data['area_base_m2'], tid)
     )
     row = cur.fetchone()
     conn.commit()
@@ -326,8 +351,8 @@ def import_products_excel():
                 emp = str(raw_emp).strip().lower() in ('sim', 'yes', 's', 'true', '1')
 
                 cur.execute(
-                    """INSERT INTO products (codigo, item, nome, area_m2, peso_kg, empilhavel)
-                       VALUES (%s, %s, %s, %s, %s, %s)
+                    """INSERT INTO products (codigo, item, nome, area_m2, peso_kg, empilhavel, miscelanea)
+                       VALUES (%s, %s, %s, %s, %s, %s, FALSE)
                        ON CONFLICT (codigo) DO UPDATE
                        SET item=%s, nome=%s, area_m2=%s, peso_kg=%s, empilhavel=%s""",
                     (codigo, item, nome, area, peso, emp,
@@ -393,16 +418,6 @@ def import_orders_excel():
 
 # ─── TOTVS CSV IMPORT ────────────────────────────────────────────────────────
 
-_MICRO_KEYWORDS = [
-    'ARRUELA', 'PARAFUSO', 'PORCA', 'REBITE', 'CORDA', 'NYLON',
-    'CONECT INF', 'CONECT SUP', 'PRENSA-CABO', 'PRENSA CABO',
-    'MOLA', 'ELO FUSI', 'GRAMPO', 'CHUMBADOR',
-]
-
-def _is_micro(desc: str) -> bool:
-    d = desc.upper().strip()
-    return any(kw in d for kw in _MICRO_KEYWORDS)
-
 @app.route('/api/import/totvs', methods=['POST'])
 def import_totvs():
     if 'file' not in request.files:
@@ -444,7 +459,7 @@ def import_totvs():
 
         conn = get_db()
         cur = dict_cursor(conn)
-        cur.execute("SELECT codigo, nome, area_m2, peso_kg, empilhavel FROM products")
+        cur.execute("SELECT codigo, nome, area_m2, peso_kg, empilhavel, miscelanea FROM products")
         catalog = {r['nome'].upper().strip(): dict(r) for r in cur.fetchall()}
         conn.close()
 
@@ -458,19 +473,18 @@ def import_totvs():
             if qty <= 0 or desc.lower() == 'nan':
                 continue
 
-            if _is_micro(desc):
-                suppressed.append({'descricao': desc, 'qtd': qty})
-                continue
-
             prod = catalog.get(desc.upper().strip())
             if prod:
-                matched.append({
-                    'codigo': prod['codigo'],
-                    'nome': prod['nome'],
-                    'area_m2': prod['area_m2'],
-                    'peso_kg': prod['peso_kg'],
-                    'qtd': qty,
-                })
+                if prod['miscelanea']:
+                    suppressed.append({'descricao': desc, 'qtd': qty})
+                else:
+                    matched.append({
+                        'codigo': prod['codigo'],
+                        'nome': prod['nome'],
+                        'area_m2': prod['area_m2'],
+                        'peso_kg': prod['peso_kg'],
+                        'qtd': qty,
+                    })
             else:
                 unmatched.append({'descricao': desc, 'qtd': qty})
 
@@ -510,11 +524,11 @@ def calculate():
     cur = dict_cursor(conn)
 
     # Load trucks
-    cur.execute("SELECT * FROM trucks ORDER BY id_carreta")
+    cur.execute("SELECT id_carreta AS id, nome, area_base_m2 FROM trucks ORDER BY id_carreta")
     frotas = cur.fetchall()
     if not frotas:
         conn.close()
-        return jsonify({'error': 'No trucks configured. Add trucks first.'}), 400
+        return jsonify({'error': 'Nenhum tipo de veículo cadastrado. Cadastre veículos primeiro.'}), 400
 
     area_padrao = float(frotas[0]['area_base_m2'])
     contador_extras = 1
@@ -522,7 +536,7 @@ def calculate():
     status_frota = []
     for v in frotas:
         status_frota.append({
-            "veiculo": v['id_carreta'],
+            "veiculo": v['nome'] or f"Veículo {v['id']}",
             "area_livre": float(v['area_base_m2']),
             "peso_acumulado": 0.0,
             "historico_cargas": []
