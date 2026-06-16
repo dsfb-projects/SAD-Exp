@@ -21,6 +21,34 @@ def get_db():
 def dict_cursor(conn):
     return conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
+def init_db():
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS products (
+            codigo     INTEGER PRIMARY KEY,
+            item       TEXT,
+            nome       TEXT,
+            area_m2    FLOAT,
+            peso_kg    FLOAT,
+            empilhavel BOOLEAN DEFAULT FALSE
+        );
+        CREATE TABLE IF NOT EXISTS trucks (
+            id_carreta   SERIAL PRIMARY KEY,
+            area_base_m2 FLOAT
+        );
+        CREATE TABLE IF NOT EXISTS sales_orders (
+            id        SERIAL PRIMARY KEY,
+            num_venda TEXT,
+            cliente   TEXT,
+            produtos  JSONB
+        );
+    """)
+    conn.commit()
+    conn.close()
+
+init_db()
+
 # ─── PRODUCTS ────────────────────────────────────────────────────────────────
 
 @app.route('/api/products', methods=['GET'])
