@@ -402,9 +402,6 @@ def obter_dados_produto_db(cur, codigo):
     peso = float(produto['peso_kg'])
     empilhavel = bool(produto['empilhavel'])
     nome = produto['nome']
-    # Safety lock for the protected cable
-    if codigo == 46 or "CABOPROTEGIDO15KV50MM2" in nome.upper():
-        area = 1.2
     return area, peso, empilhavel, nome
 
 @app.route('/api/calculate', methods=['POST'])

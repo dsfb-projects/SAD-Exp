@@ -66,7 +66,7 @@ export default function CalculatorPage() {
           <td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;font-size:13px">
             ${item.tipo === 'banco'
               ? `<span style="font-size:14px">🗃️</span> ${item.descricao}`
-              : `<strong>${item.nome}</strong>${item.num_venda ? `<br><span style="font-size:11px;color:#6b7280">Venda ${item.num_venda} · ${item.cliente}</span>` : ''}
+              : `<strong>${item.nome}</strong>${item.num_venda ? `<br><span style="font-size:11px;color:#6b7280">Projeto ${item.num_venda} · ${item.cliente}</span>` : ''}
                  ${item.empilhavel ? '<span style="background:#dcfce7;color:#16a34a;font-size:10px;padding:1px 6px;border-radius:9px;margin-left:4px">Empilhável</span>' : ''}`
             }
           </td>
@@ -365,7 +365,7 @@ export default function CalculatorPage() {
                                 ) : (
                                   <>
                                     <span style={{ fontWeight: 600 }}>{item.nome}</span>
-                                    {item.num_venda && <span style={{ color: 'var(--muted)', fontSize: 11 }}> · Venda {item.num_venda} ({item.cliente})</span>}
+                                    {item.num_venda && <span style={{ color: 'var(--muted)', fontSize: 11 }}> · Projeto {item.num_venda} ({item.cliente})</span>}
                                     {item.empilhavel && <span className="badge badge-green" style={{ marginLeft: 6, fontSize: 10 }}>Empilhável</span>}
                                   </>
                                 )}

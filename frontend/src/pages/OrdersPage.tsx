@@ -50,7 +50,7 @@ export default function OrdersPage({ onRefresh }: Props) {
   }
 
   const del = async (id: number) => {
-    if (!confirm('Remover este pedido?')) return
+    if (!confirm('Remover este projeto?')) return
     await api.deleteOrder(id); load(); onRefresh()
   }
 
@@ -63,10 +63,10 @@ export default function OrdersPage({ onRefresh }: Props) {
     <div>
       <div className="page-header">
         <div>
-          <div className="page-title">Materiais de projetos</div>
-          <div className="page-subtitle">{orders.length} pedido(s) cadastrado(s)</div>
+          <div className="page-title">Projetos</div>
+          <div className="page-subtitle">{orders.length} projeto(s) cadastrado(s)</div>
         </div>
-        <button className="btn btn-primary" onClick={openCreate}><Plus size={15} /> Novo Pedido</button>
+        <button className="btn btn-primary" onClick={openCreate}><Plus size={15} /> Novo Projeto</button>
       </div>
 
       <div className="card">
@@ -74,17 +74,16 @@ export default function OrdersPage({ onRefresh }: Props) {
           : orders.length === 0 ? (
             <div className="empty-state">
               <ShoppingCart size={40} />
-              <p>Nenhum pedido cadastrado.</p>
+              <p>Nenhum projeto cadastrado.</p>
             </div>
           ) : (
             <div className="table-wrap">
               <table>
                 <thead>
                   <tr>
-                    <th>N° Venda</th>
+                    <th>N° Projeto</th>
                     <th>Cliente</th>
-                    <th>Itens</th>
-                    <th>Data</th>
+                    <th>Materiais</th>
                     <th style={{ width: 80 }}></th>
                   </tr>
                 </thead>
@@ -105,7 +104,6 @@ export default function OrdersPage({ onRefresh }: Props) {
                           )}
                         </div>
                       </td>
-                      <td style={{ color: 'var(--muted)', fontSize: 12 }}>{new Date(o.created_at).toLocaleDateString('pt-BR')}</td>
                       <td>
                         <div style={{ display: 'flex', gap: 6 }}>
                           <button className="btn btn-secondary btn-sm" onClick={() => openEdit(o)}><Pencil size={12} /></button>
@@ -123,10 +121,10 @@ export default function OrdersPage({ onRefresh }: Props) {
       {modal && (
         <div className="modal-overlay" onClick={() => setModal(null)}>
           <div className="modal" style={{ width: 580 }} onClick={e => e.stopPropagation()}>
-            <div className="modal-title">{modal === 'create' ? 'Novo Pedido' : 'Editar Pedido'}</div>
+            <div className="modal-title">{modal === 'create' ? 'Novo Projeto' : 'Editar Projeto'}</div>
             <div className="form-grid form-grid-2">
               <div className="form-group">
-                <label>N° da Venda</label>
+                <label>N° do Projeto</label>
                 <input value={form.num_venda} onChange={e => setForm(f => ({ ...f, num_venda: e.target.value }))} />
               </div>
               <div className="form-group">
@@ -136,7 +134,7 @@ export default function OrdersPage({ onRefresh }: Props) {
             </div>
 
             <div style={{ marginTop: 18 }}>
-              <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 10 }}>Produtos do Pedido</div>
+              <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 10 }}>Materiais do Projeto</div>
               <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
                 <select
                   value={newCode}
