@@ -500,6 +500,82 @@ def import_totvs():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# ─── PRODUCT SEED (historical TOTVS data) ────────────────────────────────────
+
+_SEED_PRODUCTS = [
+    # (codigo, nome, miscelanea)  — area_m2 and peso_kg filled in later
+    (1001,"ARRUELA CUNHA M12",True),(1002,"ARRUELA M10 LISA",True),(1003,"ARRUELA M10 PRESSAO",True),
+    (1004,"ARRUELA M12 LISA",True),(1005,"ARRUELA M12 LISA ACO INOX",True),(1006,"ARRUELA M12 PRESSAO",True),
+    (1007,"ARRUELA M12 PRESSAO ACO INOX",True),(1008,"ARRUELA M16 LISA",True),(1009,"ARRUELA M16 LISA ACO INOX",True),
+    (1010,"ARRUELA M16 PRESSAO",True),(1011,"ARRUELA P/ UNIDUT CONICO 1\" AU",True),(1012,"ARRUELA P/ UNIDUT CONICO 1.1/2",True),
+    (1013,"BARRAMENTO CHAVE A VACUO",False),(1014,"BARRAMENTO DE ENTRADA SECCIONA",False),
+    (1015,"BARRAMENTO ENTRADA",False),(1016,"BARRAMENTO P/ 02 PORTA-FUS CXP",False),
+    (1017,"BUCHA P/ UNIDUT CONICO 1\" BU 1",True),(1018,"BUCHA P/ UNIDUT CONICO1.1/2\" B",True),
+    (1019,"CABO 35MM2 NU COBRE",False),(1020,"CABO 50MM2 NU COBRE",False),(1021,"CABO 70MM2 NU COBRE",False),
+    (1022,"CABO DE CONTROLE 20X1.5MM / P",False),(1023,"CABO DE CONTROLE 5X4,0MM / PR",False),
+    (1024,"CABO DE CONTROLE BLINDADO 70C",False),(1025,"CABO DE CONTROLE SEM BLINDAGEM",False),
+    (1026,"CABOPROTEGIDO15KV50MM2",False),(1027,"CAT 15KV 630A - NEOENERGIA",False),(1028,"CAT 36KV 630A",False),
+    (1029,"CHAVE A VACUO 38KV NBI 170KV",False),(1030,"CHUMBADOR - M16",True),
+    (1031,"CONECT INF BRONZE EST PINO M16",False),(1032,"CONECT SUP BRONZE EST PINO M16",False),
+    (1033,"CONETOR BRONZE EST. ATERRAMENT",False),(1034,"CONETOR BRONZE EST. TRM 90 BAR",False),
+    (1035,"CONETOR BRONZE EST. TRM RETO B",False),(1036,"CONETOR SUPORTE ANTICORONA P/",False),
+    (1037,"CONETOR T ANTICORONA [TUBO-TUB",False),(1038,"CONETOR T BRONZE EST. CABO10A7",False),
+    (1039,"CORDA EM NYLON 3/8",True),(1040,"DAILET DMT 100-X",False),
+    (1041,"DISPOSITIVO DE ICAMENTO - TRAN",False),(1042,"ELETRODUTO FLEXIVEL 1\"",False),
+    (1043,"ELETRODUTO FLEXIVEL 1.1/2 IPS",False),(1044,"ELETRODUTO RIGIDO 1 IPS",False),
+    (1045,"ELETRODUTO RIGIDO 1.1/2 IPS",False),(1046,"ELO FUSIVEL 12T - 730MM",True),
+    (1047,"ESTRUTURA BANCO SHUNT TRANSENER",False),(1048,"ESTRUTURA METALICA NEOENERGIA",False),
+    (1049,"ESTRUTURA METALICA SIMEC ESTAG",False),(1050,"FI 400KVAR 8360V",False),
+    (1051,"ISOLADOR SUPORTE MACICO TR-205",False),(1052,"ISOLADOR SUPORTE MACICO TR-208",False),
+    (1053,"ISOLADOR SUPORTE MACICO TR-210",False),(1054,"ISOLADOR SUPORTE MACICO TR-225",False),
+    (1055,"ISOLADOR SUPORTE MACICO TR-231",False),(1056,"ISOLADOR SUPORTE MACICO TR-267",False),
+    (1057,"MG 634KVAR 16320V 50HZ",False),(1058,"MH 147,167KVAR 12930V",False),
+    (1059,"MOITAO CADERNAL 03 ROLDANAS 45",False),(1060,"MOLA DE EXPULSAO DO TUBO CXP+",True),
+    (1061,"PARA-RAIOS 12KVCL2 19134300",False),(1062,"PARA-RAIOS-36KV10KA-CL2CN",False),
+    (1063,"PARAF CAB SEXT M12X30 INOX DIN",True),(1064,"PARAF. SXT M16X35 INOX 304",True),
+    (1065,"PARAF. SXT M16X35 INOX 316",True),(1066,"PARAF.SXT M10X30",True),(1067,"PARAF.SXT M12X25 INOX",True),
+    (1068,"PARAF.SXT M12X35 INOX",True),(1069,"PARAF.SXT M12X40",True),(1070,"PARAF.SXT M12X70",True),
+    (1071,"PARAF.SXT M16X50",True),(1072,"PARAF.SXT M16X60",True),(1073,"PARAFUSO M12X45 GALV.FOGO",True),
+    (1074,"PORCA M16 ACO INOX",True),(1075,"PORCA SEXT M10",True),(1076,"PORCA SEXT M12",True),(1077,"PORCA SEXT M16",True),
+    (1078,"REATOR 0,07MH 270A 15KV 60HZ",False),(1079,"REATOR TIPO RFF- 125,557MH / 2",False),
+    (1080,"SAV 36 KV 630 A",False),(1081,"SC CABO LIGACAO DOS CAP / PARA",False),
+    (1082,"SC CAIXA-INTERLIGACAO NEOENERGI",False),(1083,"SC CAIXA-PAINEL SIMEC",False),
+    (1084,"SC PORTA FUSIVEL EXPULSAO 20KV",False),(1085,"SUPORTE P/ BARRAMENTOS CXP 20K",False),
+    (1086,"SUPORTE P/ BARRAMENTOS CXP 8KV",False),(1087,"TAMPA PARA DAILET DMT 100-X",False),
+    (1088,"TAMPAO ANTICORONA P/ TUBO 3\"",False),(1089,"TAMPAO MT 100",True),
+    (1090,"TC CLASSE 34.2KV IP 5A IS 1A",False),(1091,"TC15KV5/15/30-5A1,3FT25VA0,3",False),
+    (1092,"TP CLASSE 34,2 UP 34500/V3 V U",False),(1093,"UNIDUT CONICO 1\" UCT 100C",True),
+    (1094,"UNIDUT CONICO 1.1/2\" UCT 112C",True),(1095,"VERGALHAO COBRE 3/8\"X3,0M",False),
+]
+
+@app.route('/api/seed/products', methods=['POST'])
+def seed_products():
+    """One-time endpoint to populate catalog from historical TOTVS data."""
+    conn = get_db()
+    cur = conn.cursor()
+    inserted = 0
+    skipped = 0
+    for codigo, nome, misc in _SEED_PRODUCTS:
+        cur.execute("SELECT 1 FROM products WHERE codigo=%s", (codigo,))
+        if cur.fetchone():
+            skipped += 1
+            continue
+        cur.execute(
+            """INSERT INTO products (codigo, item, nome, area_m2, peso_kg, empilhavel, miscelanea)
+               VALUES (%s, %s, %s, 0, 0, FALSE, %s)""",
+            (codigo, nome, nome, misc)
+        )
+        inserted += 1
+    conn.commit()
+    conn.close()
+    misc_count = sum(1 for _, _, m in _SEED_PRODUCTS if m)
+    return jsonify({
+        'ok': True, 'inserted': inserted, 'skipped': skipped,
+        'total': len(_SEED_PRODUCTS),
+        'miscelanea': misc_count,
+        'equipamentos': len(_SEED_PRODUCTS) - misc_count,
+    })
+
 # ─── CARGO CALCULATOR ─────────────────────────────────────────────────────────
 
 def obter_dados_produto_db(cur, codigo):
