@@ -33,7 +33,7 @@ export default function App() {
       <aside className="sidebar">
         <div className="sidebar-brand">
           <Truck size={22} color="#4f8ef7" />
-          <span>CargoFleet</span>
+          <span>SAD-Exp</span>
         </div>
         <nav className="sidebar-nav">
           {NAV.map(({ id, label, Icon }) => (

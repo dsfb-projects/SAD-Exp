@@ -83,7 +83,7 @@ export default function CalculatorPage() {
               ${isExtra ? '<span style="background:#dbeafe;color:#1d4ed8;font-size:11px;padding:2px 8px;border-radius:9px;font-weight:600">CARRETA EXTRA</span>' : ''}
             </div>
             <div style="text-align:right">
-              <div style="font-size:11px;color:#6b7280;margin-bottom:2px">CargoFleet · Manifesto de Carga</div>
+              <div style="font-size:11px;color:#6b7280;margin-bottom:2px">SAD-Exp · Manifesto de Carga</div>
               <div style="font-size:11px;color:#6b7280">${now}</div>
             </div>
           </div>
