@@ -63,7 +63,7 @@ export default function OrdersPage({ onRefresh }: Props) {
     <div>
       <div className="page-header">
         <div>
-          <div className="page-title">Pedidos de Venda</div>
+          <div className="page-title">Materiais de Pedidos</div>
           <div className="page-subtitle">{orders.length} pedido(s) cadastrado(s)</div>
         </div>
         <button className="btn btn-primary" onClick={openCreate}><Plus size={15} /> Novo Pedido</button>
