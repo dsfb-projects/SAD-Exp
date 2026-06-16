@@ -43,5 +43,5 @@ externalPort = 3002
 
 [deployment]
 deploymentTarget = "autoscale"
-run = ["uv", "run", "gunicorn", "--bind=0.0.0.0:5000", "--workers=2", "backend.app:app"]
-build = ["bash", "-c", "cd frontend && npm install && npm run build"]
+run = ["bash", "-c", "python3 -m gunicorn --bind=0.0.0.0:5000 --workers=2 backend.app:app"]
+build = ["bash", "-c", "pip install --user -r backend/requirements.txt && cd frontend && npm install && npm run build"]
