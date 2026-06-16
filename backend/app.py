@@ -3,13 +3,16 @@ import math
 import json
 import ast
 import io
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory, send_file
 from flask_cors import CORS
 import psycopg2
 import psycopg2.extras
 import pandas as pd
 
-app = Flask(__name__)
+# In production, serve the built Vite frontend from backend
+FRONTEND_DIST = os.path.join(os.path.dirname(__file__), '..', 'frontend', 'dist')
+
+app = Flask(__name__, static_folder=FRONTEND_DIST, static_url_path='')
 CORS(app)
 
 def get_db():
@@ -538,6 +541,17 @@ def stats():
         "orders": order_count,
         "total_fleet_area": total_area
     })
+
+# ─── SPA FALLBACK (serves React app for all non-API routes in production) ────
+
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve_spa(path):
+    dist = os.path.join(os.path.dirname(__file__), '..', 'frontend', 'dist')
+    file_path = os.path.join(dist, path)
+    if path and os.path.exists(file_path):
+        return send_from_directory(dist, path)
+    return send_from_directory(dist, 'index.html')
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))

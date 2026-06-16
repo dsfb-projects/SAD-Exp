@@ -11,7 +11,7 @@ import './App.css'
 
 type Page = 'dashboard' | 'products' | 'trucks' | 'orders' | 'import' | 'calculator'
 
-const NAV: { id: Page; label: string; Icon: React.FC<{size?:number}> }[] = [
+const NAV: { id: Page; label: string; Icon: React.FC<{size?: string | number}> }[] = [
   { id: 'dashboard', label: 'Dashboard', Icon: LayoutDashboard },
   { id: 'products', label: 'Produtos', Icon: Package },
   { id: 'trucks', label: 'Frotas', Icon: Truck },
