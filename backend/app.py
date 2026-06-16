@@ -391,6 +391,101 @@ def import_orders_excel():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# ─── TOTVS CSV IMPORT ────────────────────────────────────────────────────────
+
+_MICRO_KEYWORDS = [
+    'ARRUELA', 'PARAFUSO', 'PORCA', 'REBITE', 'CORDA', 'NYLON',
+    'CONECT INF', 'CONECT SUP', 'PRENSA-CABO', 'PRENSA CABO',
+    'MOLA', 'ELO FUSI', 'GRAMPO', 'CHUMBADOR',
+]
+
+def _is_micro(desc: str) -> bool:
+    d = desc.upper().strip()
+    return any(kw in d for kw in _MICRO_KEYWORDS)
+
+@app.route('/api/import/totvs', methods=['POST'])
+def import_totvs():
+    if 'file' not in request.files:
+        return jsonify({'error': 'Nenhum arquivo enviado'}), 400
+
+    f = request.files['file']
+    num_projeto = request.form.get('num_projeto', '').strip()
+    cliente = request.form.get('cliente', '').strip()
+
+    try:
+        raw = f.read()
+        content = None
+        for enc in ['latin1', 'cp1252', 'utf-8']:
+            try:
+                content = raw.decode(enc)
+                break
+            except UnicodeDecodeError:
+                continue
+        if content is None:
+            return jsonify({'error': 'Não foi possível decodificar o arquivo.'}), 400
+
+        df = pd.read_csv(io.StringIO(content), sep=';', dtype=str)
+        df.columns = df.columns.str.strip()
+
+        desc_col = next((c for c in df.columns if 'desc' in c.lower() and 'produto' in c.lower()), None)
+        qty_col  = next((c for c in df.columns if 'qtd' in c.lower() and 'empenho' in c.lower()), None)
+        pai_col  = next((c for c in df.columns if 'produto pai' in c.lower() or 'pai' == c.lower().strip()), None)
+
+        if not desc_col or not qty_col:
+            return jsonify({'error': f'Colunas esperadas não encontradas. Colunas no arquivo: {list(df.columns)}'}), 400
+
+        if not num_projeto and pai_col:
+            pais = df[pai_col].dropna().unique()
+            if len(pais):
+                num_projeto = str(pais[0]).strip()
+
+        df[qty_col] = pd.to_numeric(df[qty_col].str.replace(',', '.'), errors='coerce').fillna(0)
+        grouped = df.groupby(desc_col)[qty_col].sum().reset_index()
+
+        conn = get_db()
+        cur = dict_cursor(conn)
+        cur.execute("SELECT codigo, nome, area_m2, peso_kg, empilhavel FROM products")
+        catalog = {r['nome'].upper().strip(): dict(r) for r in cur.fetchall()}
+        conn.close()
+
+        matched = []
+        unmatched = []
+        suppressed = []
+
+        for _, row in grouped.iterrows():
+            desc = str(row[desc_col]).strip()
+            qty  = int(row[qty_col])
+            if qty <= 0 or desc.lower() == 'nan':
+                continue
+
+            if _is_micro(desc):
+                suppressed.append({'descricao': desc, 'qtd': qty})
+                continue
+
+            prod = catalog.get(desc.upper().strip())
+            if prod:
+                matched.append({
+                    'codigo': prod['codigo'],
+                    'nome': prod['nome'],
+                    'area_m2': prod['area_m2'],
+                    'peso_kg': prod['peso_kg'],
+                    'qtd': qty,
+                })
+            else:
+                unmatched.append({'descricao': desc, 'qtd': qty})
+
+        return jsonify({
+            'ok': True,
+            'num_projeto': num_projeto,
+            'cliente': cliente,
+            'matched': matched,
+            'unmatched': unmatched,
+            'suppressed': suppressed,
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # ─── CARGO CALCULATOR ─────────────────────────────────────────────────────────
 
 def obter_dados_produto_db(cur, codigo):

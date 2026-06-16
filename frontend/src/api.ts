@@ -42,6 +42,13 @@ export const api = {
     const fd = new FormData(); fd.append('file', file)
     return fetch(`${BASE}/import/orders`, { method: 'POST', body: fd }).then(r => r.json())
   },
+  importTotvs: (file: File, num_projeto: string, cliente: string) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    fd.append('num_projeto', num_projeto)
+    fd.append('cliente', cliente)
+    return fetch(`${BASE}/import/totvs`, { method: 'POST', body: fd }).then(r => r.json())
+  },
 
   // Calculate
   calculate: (d: CalcInput) => req<CalcResult>('POST', '/calculate', d),
@@ -66,6 +73,17 @@ export interface Order {
   produtos: Record<string, number>; created_at: string
 }
 export type OrderInput = Omit<Order, 'id'|'created_at'>
+
+export interface TotvsMatchedItem {
+  codigo: number; nome: string; area_m2: number; peso_kg: number; qtd: number
+}
+export interface TotvsPreview {
+  ok: boolean
+  num_projeto: string; cliente: string
+  matched: TotvsMatchedItem[]
+  unmatched: { descricao: string; qtd: number }[]
+  suppressed: { descricao: string; qtd: number }[]
+}
 
 export interface CalcInput {
   qtd_bancos: number
