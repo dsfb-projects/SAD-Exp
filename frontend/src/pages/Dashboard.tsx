@@ -8,7 +8,7 @@ interface Props { stats: Stats | null; onNavigate: (p: Page) => void }
 export default function Dashboard({ stats, onNavigate }: Props) {
   const cards = [
     { label: 'Catálogo de Produtos', value: stats?.products ?? '—', icon: Package, color: '#4f8ef7', page: 'products' as Page },
-    { label: 'Carretas na Frota', value: stats?.trucks ?? '—', icon: Truck, color: '#7c5dfa', page: 'trucks' as Page },
+    { label: 'Catálogo de Carretas', value: stats?.trucks ?? '—', icon: Truck, color: '#7c5dfa', page: 'trucks' as Page },
     { label: 'Materiais de projetos', value: stats?.orders ?? '—', icon: ShoppingCart, color: '#22c55e', page: 'orders' as Page },
     { label: 'Área Total da Frota', value: stats ? `${stats.total_fleet_area.toFixed(1)} m²` : '—', icon: TrendingUp, color: '#f59e0b', page: 'trucks' as Page },
   ]
