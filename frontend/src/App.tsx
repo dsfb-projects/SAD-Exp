@@ -14,7 +14,7 @@ type Page = 'dashboard' | 'products' | 'trucks' | 'orders' | 'import' | 'calcula
 const NAV: { id: Page; label: string; Icon: React.FC<{size?: string | number}> }[] = [
   { id: 'dashboard', label: 'Dashboard', Icon: LayoutDashboard },
   { id: 'products', label: 'Produtos', Icon: Package },
-  { id: 'trucks', label: 'Frotas', Icon: Truck },
+  { id: 'trucks', label: 'Carretas', Icon: Truck },
   { id: 'orders', label: 'Pedidos', Icon: ShoppingCart },
   { id: 'import', label: 'Importar', Icon: Upload },
   { id: 'calculator', label: 'Calculadora', Icon: Calculator },

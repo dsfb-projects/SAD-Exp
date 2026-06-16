@@ -43,7 +43,7 @@ export default function TrucksPage({ onRefresh }: Props) {
     <div>
       <div className="page-header">
         <div>
-          <div className="page-title">Frotas</div>
+          <div className="page-title">Carretas</div>
           <div className="page-subtitle">{trucks.length} carreta(s) · {totalArea.toFixed(1)} m² total</div>
         </div>
         <button className="btn btn-primary" onClick={openCreate}><Plus size={15} /> Nova Carreta</button>
