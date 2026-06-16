@@ -83,7 +83,7 @@ def update_product(pid):
     cur = dict_cursor(conn)
     cur.execute(
         """UPDATE products SET codigo=%s, item=%s, nome=%s, area_m2=%s,
-           peso_kg=%s, empilhavel=%s WHERE id=%s RETURNING *""",
+           peso_kg=%s, empilhavel=%s WHERE codigo=%s RETURNING *""",
         (data['codigo'], data['item'], data['nome'],
          data['area_m2'], data['peso_kg'], data['empilhavel'], pid)
     )
@@ -98,7 +98,7 @@ def update_product(pid):
 def delete_product(pid):
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("DELETE FROM products WHERE id=%s", (pid,))
+    cur.execute("DELETE FROM products WHERE codigo=%s", (pid,))
     conn.commit()
     conn.close()
     return jsonify({'ok': True})
@@ -109,7 +109,7 @@ def delete_product(pid):
 def list_trucks():
     conn = get_db()
     cur = dict_cursor(conn)
-    cur.execute("SELECT * FROM trucks ORDER BY id")
+    cur.execute("SELECT * FROM trucks ORDER BY id_carreta")
     rows = cur.fetchall()
     conn.close()
     return jsonify([dict(r) for r in rows])
@@ -134,7 +134,7 @@ def update_truck(tid):
     conn = get_db()
     cur = dict_cursor(conn)
     cur.execute(
-        "UPDATE trucks SET id_carreta=%s, area_base_m2=%s WHERE id=%s RETURNING *",
+        "UPDATE trucks SET id_carreta=%s, area_base_m2=%s WHERE id_carreta=%s RETURNING *",
         (data['id_carreta'], data['area_base_m2'], tid)
     )
     row = cur.fetchone()
@@ -148,7 +148,7 @@ def update_truck(tid):
 def delete_truck(tid):
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("DELETE FROM trucks WHERE id=%s", (tid,))
+    cur.execute("DELETE FROM trucks WHERE id_carreta=%s", (tid,))
     conn.commit()
     conn.close()
     return jsonify({'ok': True})
@@ -418,7 +418,7 @@ def calculate():
     cur = dict_cursor(conn)
 
     # Load trucks
-    cur.execute("SELECT * FROM trucks ORDER BY id")
+    cur.execute("SELECT * FROM trucks ORDER BY id_carreta")
     frotas = cur.fetchall()
     if not frotas:
         conn.close()
